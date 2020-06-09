@@ -118,11 +118,20 @@ private const val CAMEL_CASE_SCORE = GAP_RECOVERY_SCORE
 private const val ROOT: Byte = 0
 private const val LEFT: Byte = 1
 private const val UP: Byte = 2
-private const val DIAGONAL: Byte = 3
+private const val DIAGONAL_MATCH: Byte = 3
+private const val DIAGONAL_MISMATCH: Byte = 4
 
 private fun isDelimiter(c: Char) = c == '.' || c == '$' || c == '/'
 
-private fun charEquals(c1: Char, c2: Char) = c1.toLowerCase() == c2.toLowerCase()
+private fun isLowercaseAscii(c: Char) = c in 'a'..'z'
+
+private fun isUppercaseAscii(c: Char) = c in 'A'..'Z'
+
+private fun charEquals(c1: Char, c2: Char): Boolean {
+    val lowercaseC1 = if (isUppercaseAscii(c1)) (c1.toInt() + 32).toChar() else c1
+    val lowercaseC2 = if (isUppercaseAscii(c2)) (c2.toInt() + 32).toChar() else c2
+    return lowercaseC1 == lowercaseC2
+}
 
 private class MatchDetails(val source: String, val matchedChars: List<Int>, val score: Int)
 
@@ -143,9 +152,8 @@ private fun getCharacterScore(
     val matchesCase = char == patternChar
 
     return when {
-        !charEquals(char, patternChar) -> MISMATCH_SCORE
         matchesCase && patternIndex == 0 && sourceIndex == 0 -> FIRST_CHAR_SCORE
-        prevChar.isLowerCase() && char.isUpperCase() -> CAMEL_CASE_SCORE
+        isLowercaseAscii(prevChar) && isUppercaseAscii(char) -> CAMEL_CASE_SCORE
         isDelimiter(char) -> DELIMITER_SCORE
         matchesCase && isDelimiter(prevChar) -> POST_DELIMITER_SCORE
         else -> MATCH_SCORE
@@ -157,21 +165,28 @@ private fun smartMatch(source: String, pattern: String): MatchDetails {
     val parentMatrix = Array(pattern.length + 1) { ByteArray(source.length + 1) }
 
     // Construct score and parent matrix
-    fun getMatchScore(row: Int, column: Int): Int =
-        getCharacterScore(source, pattern, column - 1, row - 1)
-
     for (r in 1..pattern.length) {
         for (c in 1..source.length) {
             val leftScore = scoreMatrix[r][c - 1] + GAP_SCORE
             val upScore = scoreMatrix[r - 1][c] + GAP_SCORE
-            val diagonalScore = scoreMatrix[r - 1][c - 1] + getMatchScore(r, c)
+
+            val matches = charEquals(source[c - 1], pattern[r - 1])
+            var diagonalScore = scoreMatrix[r - 1][c - 1]
+            diagonalScore +=
+                if (matches) {
+                    getCharacterScore(source, pattern, c - 1, r - 1)
+                } else {
+                    MISMATCH_SCORE
+                }
 
             val maxScore = maxOf(leftScore, upScore, diagonalScore)
             scoreMatrix[r][c] = maxScore
 
             if (maxScore >= 0) {
                 when (maxScore) {
-                    diagonalScore -> parentMatrix[r][c] = DIAGONAL
+                    diagonalScore -> {
+                        parentMatrix[r][c] = if (matches) DIAGONAL_MATCH else DIAGONAL_MISMATCH
+                    }
                     upScore -> parentMatrix[r][c] = UP
                     leftScore -> parentMatrix[r][c] = LEFT
                 }
@@ -201,12 +216,14 @@ private fun smartMatch(source: String, pattern: String): MatchDetails {
         when (parentMatrix[row][column]) {
             LEFT -> column--
             UP -> row--
-            DIAGONAL -> {
+            DIAGONAL_MATCH -> {
                 row--
                 column--
-                if (charEquals(pattern[row], source[column])) {
-                    matchedChars.add(column)
-                }
+                matchedChars.add(column)
+            }
+            DIAGONAL_MISMATCH -> {
+                row--
+                column--
             }
         }
     }
