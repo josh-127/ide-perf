@@ -156,7 +156,7 @@ class MethodTracerController(
                             )
                         }
                         else {
-                            val classNames = TracerConfig.removeAllTracing()
+                            val classNames = TracerConfig.untraceAll()
                             retransformClasses(classNames.toSet())
                         }
                     }
@@ -165,18 +165,22 @@ class MethodTracerController(
                         val className = command.target.className
                         val methodName = command.target.methodName
                         val parameters = command.target.parameterIndexes
-                        val classJvmName = className.replace('.', '/')
                         if (traceOption != null && methodName != null && parameters != null) {
                             if (command.enable) {
-                                TracerConfig.traceMethods(
-                                    classJvmName,
+                                TracerConfig.setTrace(
+                                    className,
                                     methodName,
                                     traceOption.tracepointFlag,
                                     parameters
                                 )
                             }
                             else {
-                                TracerConfig.untraceMethods(classJvmName, methodName)
+                                TracerConfig.setTrace(
+                                    className,
+                                    methodName,
+                                    0,
+                                    emptyList()
+                                )
                             }
                             retransformClasses(setOf(className))
                         }
@@ -192,12 +196,10 @@ class MethodTracerController(
 
     private fun traceAndRetransform(enable: Boolean, vararg methods: Method) {
         if (methods.isEmpty()) return
-        if (enable) {
-            methods.forEach(TracerConfig::traceMethod)
-        }
-        else {
-            methods.forEach(TracerConfig::untraceMethod)
-        }
+
+        val flags = if (enable) TracepointFlags.TRACE_ALL else 0
+        methods.forEach { TracerConfig.setTrace(it, flags, emptyList()) }
+
         val classes = methods.map { it.declaringClass }.toSet()
         retransformClasses(classes)
     }
