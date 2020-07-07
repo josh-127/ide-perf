@@ -63,8 +63,12 @@ object TracerConfig {
         val methodIds = mutableMapOf<String, Int?>()
     }
 
-    fun trace(pattern: TracePattern, flags: Int, parameters: Collection<Int>) {
-        when (pattern) {
+    fun trace(
+        pattern: TracePattern,
+        flags: Int = TracepointFlags.TRACE_ALL,
+        parameters: Collection<Int> = emptyList()
+    ): List<String> {
+        return when (pattern) {
             is TracePattern.Exact -> setTrace(pattern.method, flags, parameters)
             is TracePattern.ByMethodName -> setTrace(pattern.className, pattern.methodName, flags, parameters)
             is TracePattern.ByMethodPattern -> setTrace(pattern.className, pattern.methodPattern, flags, parameters)
@@ -72,8 +76,8 @@ object TracerConfig {
         }
     }
 
-    fun untrace(pattern: TracePattern) {
-        when (pattern) {
+    fun untrace(pattern: TracePattern): List<String> {
+        return when(pattern) {
             is TracePattern.Exact -> setTrace(pattern.method, 0, emptyList())
             is TracePattern.ByMethodName -> setTrace(pattern.className, pattern.methodName, 0, emptyList())
             is TracePattern.ByMethodPattern -> setTrace(pattern.className, pattern.methodPattern, 0, emptyList())
@@ -81,8 +85,9 @@ object TracerConfig {
         }
     }
 
-    private fun setTrace(method: Method, flags: Int, parameters: Collection<Int>) {
-        val classJvmName = method.declaringClass.name.replace('.', '/')
+    private fun setTrace(method: Method, flags: Int, parameters: Collection<Int>): List<String> {
+        val className = method.declaringClass.name
+        val classJvmName = className.replace('.', '/')
         var parameterBits = 0
         for (index in parameters) {
             parameterBits = parameterBits or (1 shl index)
@@ -110,6 +115,8 @@ object TracerConfig {
                 tracepoint.parameters.set(parameterBits)
                 tracepoint.flags.set(flags)
             }
+
+            return listOf(className)
         }
     }
 
@@ -118,7 +125,7 @@ object TracerConfig {
         methodPattern: String,
         flags: Int,
         parameters: Collection<Int>
-    ) {
+    ): List<String> {
         val classJvmName = className.replace('.', '/')
         val methodRegex = Pattern.compile(PatternUtil.convertToRegex(methodPattern))
         val enable = flags and TracepointFlags.TRACE_ALL != 0
@@ -150,10 +157,37 @@ object TracerConfig {
                     }
                 }
             }
+
+            return listOf(className)
         }
     }
 
-    private fun setTrace(classPattern: String, flags: Int, parameters: Collection<Int>) {
+    private fun setTrace(classPattern: String, flags: Int, parameters: Collection<Int>): List<String> {
+        val classes = AgentLoader.instrumentation?.allLoadedClasses
+
+        if (classes != null) {
+            val regex = Pattern.compile(PatternUtil.convertToRegex(classPattern))
+            val matcher = regex.matcher("")
+            val matchingClasses = mutableListOf<String>()
+
+            for (clazz in classes) {
+                val className = clazz.name
+                matcher.reset(className)
+                if (matcher.matches()) {
+                    matchingClasses.add(className)
+                }
+            }
+
+            lock.withLock {
+                for (className in matchingClasses) {
+                    setTrace(className, "*", flags, parameters)
+                }
+            }
+
+            return matchingClasses
+        }
+
+        return emptyList()
     }
 
     /** Remove all tracing and return the affected class names. */

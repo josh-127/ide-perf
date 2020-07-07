@@ -160,6 +160,22 @@ class MethodTracerController(
                             retransformClasses(classNames.toSet())
                         }
                     }
+                    is TraceTarget.ClassPattern -> {
+                        val traceOption = command.traceOption
+                        val classPattern = command.target.classPattern
+                        if (traceOption != null) {
+                            val classes = if (command.enable) {
+                                TracerConfig.trace(
+                                    TracePattern.ByClassPattern(classPattern),
+                                    traceOption.tracepointFlag
+                                )
+                            }
+                            else {
+                                TracerConfig.untrace(TracePattern.ByClassPattern(classPattern))
+                            }
+                            retransformClasses(classes.toSet())
+                        }
+                    }
                     is TraceTarget.MethodPattern -> {
                         val traceOption = command.traceOption
                         val className = command.target.className
@@ -168,8 +184,7 @@ class MethodTracerController(
                             if (command.enable) {
                                 TracerConfig.trace(
                                     TracePattern.ByMethodPattern(className, methodPattern),
-                                    traceOption.tracepointFlag,
-                                    emptyList()
+                                    traceOption.tracepointFlag
                                 )
                             }
                             else {
