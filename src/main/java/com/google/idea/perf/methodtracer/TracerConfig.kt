@@ -53,11 +53,14 @@ object TracerConfig {
 
     /** Specifies which methods to instrument for a given class. */
     private class ClassConfig {
-        /** Set of simple method names to instrumental and their associated properties. */
-        val methodPatterns = LinkedHashMap<Pattern, TracepointProperties>()
+        /**
+         * List of trace commands to execute before the class config is fully loaded with method IDs.
+         * If this field is null, then method IDs within the class config have been fully loaded.
+         */
+        var commands: MutableList<Pair<Pattern, TracepointProperties>>? = mutableListOf()
 
         /** Map from method signature to method ID. */
-        val methodIds = mutableMapOf<String, Int>()
+        val methodIds = mutableMapOf<String, Int?>()
     }
 
     fun trace(pattern: TracePattern, flags: Int, parameters: Collection<Int>) {
@@ -105,7 +108,7 @@ object TracerConfig {
             if (methodId != null) {
                 val tracepoint = getTracepoint(methodId)
                 tracepoint.parameters.set(parameterBits)
-                tracepoint.setFlags(flags)
+                tracepoint.flags.set(flags)
             }
         }
     }
@@ -118,41 +121,32 @@ object TracerConfig {
     ) {
         val classJvmName = className.replace('.', '/')
         val methodRegex = Pattern.compile(PatternUtil.convertToRegex(methodPattern))
+        val enable = flags and TracepointFlags.TRACE_ALL != 0
         var parameterBits = 0
         for (index in parameters) {
             parameterBits = parameterBits or (1 shl index)
         }
 
         lock.withLock {
-            if (flags and TracepointFlags.TRACE_ALL == 0) {
-                val classConfig = classConfigs[classJvmName] ?: return
+            val classConfig = classConfigs.getOrPut(classJvmName) { ClassConfig() }
 
-                for ((signature, _) in classConfig.methodIds) {
-                    val methodName = signature.substringBefore('(')
+            // If the class config isn't loaded, enqueue a command.
+            classConfig.commands?.add(Pair(methodRegex, TracepointProperties(flags, parameterBits)))
 
-                    if (methodRegex.matcher(methodName).matches()) {
-                        val methodDesc = signature.substring(methodPattern.length)
-                        val methodId = getMethodId(classJvmName, methodPattern, methodDesc)
-                        if (methodId != null) {
-                            val tracepoint = getTracepoint(methodId)
-                            tracepoint.unsetFlags(TracepointFlags.TRACE_ALL)
-                            tracepoint.parameters.set(0)
-                        }
-                    }
-                }
-            }
-            else {
-                val classConfig = classConfigs.getOrPut(classJvmName) { ClassConfig() }
-                classConfig.methodPatterns[methodRegex] = TracepointProperties(flags, parameterBits)
-
-                // If the tracepoint already exists, set tracepoint properties.
-                for ((signature, methodId) in classConfig.methodIds) {
+            // If the class config is loaded, set tracepoint properties.
+            for ((signature, methodId) in classConfig.methodIds) {
+                if (methodId != null) {
                     val methodName = signature.substringBefore('(')
 
                     if (methodRegex.matcher(methodName).matches()) {
                         val tracepoint = getTracepoint(methodId)
-                        tracepoint.setFlags(flags)
                         tracepoint.parameters.set(parameterBits)
+                        if (enable) {
+                            tracepoint.setFlags(flags)
+                        }
+                        else {
+                            tracepoint.unsetFlags(TracepointFlags.TRACE_ALL)
+                        }
                     }
                 }
             }
@@ -174,7 +168,33 @@ object TracerConfig {
     fun shouldInstrumentClass(classJvmName: String): Boolean {
         lock.withLock {
             val classConfig = classConfigs[classJvmName] ?: return false
-            return classConfig.methodPatterns.isNotEmpty() || classConfig.methodIds.isNotEmpty()
+            return classConfig.commands?.isNotEmpty() ?: true || classConfig.methodIds.isNotEmpty()
+        }
+    }
+
+    fun applyCommands(classJvmName: String, methodSignatures: Collection<String>) {
+        lock.withLock {
+            val classConfig = classConfigs[classJvmName] ?: return
+            val commands = classConfig.commands
+
+            if (commands != null) {
+                for (signature in methodSignatures) {
+                    classConfig.methodIds[signature] = null
+                }
+
+                for ((pattern, properties) in commands) {
+                    for (signature in methodSignatures) {
+                        if (pattern.matcher(signature).matches()) {
+                            val index = signature.indexOf('(')
+                            val methodName = signature.substring(0, index)
+                            val methodDesc = signature.substring(index)
+                            putMethodId(classJvmName, methodName, methodDesc, properties)
+                        }
+                    }
+                }
+
+                classConfig.commands = null
+            }
         }
     }
 
@@ -186,24 +206,28 @@ object TracerConfig {
         lock.withLock {
             val classConfig = classConfigs[classJvmName] ?: return null
             val methodSignature = "$methodName$methodDesc"
+            return classConfig.methodIds[methodSignature]
+        }
+    }
 
+    private fun putMethodId(
+        classJvmName: String, methodName: String, methodDesc: String,
+        properties: TracepointProperties
+    ): Int? {
+        lock.withLock {
+            val classConfig = classConfigs[classJvmName] ?: return null
+            val methodSignature = "$methodName$methodDesc"
             val existingId = classConfig.methodIds[methodSignature]
             if (existingId != null) {
+                getTracepoint(existingId).flags.set(properties.flags)
+                getTracepoint(existingId).parameters.set(properties.parameters)
                 return existingId
             }
 
-            val properties = classConfig.methodPatterns.entries.firstOrNull {
-                it.key.matcher(methodName).matches()
-            }?.value
-
-            if (properties != null) {
-                val tracepoint = createTracepoint(classJvmName, methodName, methodDesc, properties)
-                val newId = tracepoints.append(tracepoint)
-                classConfig.methodIds[methodSignature] = newId
-                return newId
-            }
-
-            return null
+            val tracepoint = createTracepoint(classJvmName, methodName, methodDesc, properties)
+            val newId = tracepoints.append(tracepoint)
+            classConfig.methodIds[methodSignature] = newId
+            return newId
         }
     }
 
