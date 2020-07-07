@@ -213,7 +213,7 @@ object TracerConfig {
 
             if (commands != null) {
                 for (signature in methodSignatures) {
-                    classConfig.methodIds[signature] = null
+                    classConfig.methodIds.putIfAbsent(signature, null)
                 }
 
                 for ((pattern, properties) in commands) {
