@@ -16,8 +16,6 @@
 
 package com.google.idea.perf.vfstracer;
 
-import java.util.Collection;
-
 /**
  * Hook methods that IntelliJ can call into as a link between IntelliJ's core class loaders and
  * IDE Perf's plugin class loader.
@@ -33,8 +31,8 @@ public final class VfsTracerTrampoline {
         hook.onPsiElementCreate(psiElement);
     }
 
-    public static Object wrapStubIndexProcessor(Object processor) {
-        return hook.wrapStubIndexProcessor(processor);
+    public static Object onStubIndexProcessorCreate(Object processor) {
+        return hook.onStubIndexProcessorCreate(processor);
     }
 
     private static class VfsTracerHookStub implements VfsTracerHook {
@@ -42,7 +40,7 @@ public final class VfsTracerTrampoline {
         public void onPsiElementCreate(Object psiElement) {}
 
         @Override
-        public Object wrapStubIndexProcessor(Object processor) {
+        public Object onStubIndexProcessorCreate(Object processor) {
             return processor;
         }
     }

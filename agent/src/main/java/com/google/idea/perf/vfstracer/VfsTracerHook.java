@@ -21,5 +21,5 @@ import java.util.Collection;
 public interface VfsTracerHook {
     void onPsiElementCreate(Object psiElement);
 
-    Object wrapStubIndexProcessor(Object processor);
+    Object onStubIndexProcessorCreate(Object processor);
 }

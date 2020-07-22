@@ -112,7 +112,7 @@ private class VfsTracerHookImpl: VfsTracerHook {
         }
     }
 
-    override fun wrapStubIndexProcessor(processor: Any?): Any? {
+    override fun onStubIndexProcessorCreate(processor: Any?): Any? {
         if (processor == null) {
             return null
         }
@@ -143,7 +143,7 @@ private class TracerClassFileTransformer: ClassFileTransformer {
     companion object {
         val HOOK_CLASS_JVM_NAME: String = Type.getInternalName(VfsTracerTrampoline::class.java)
         val ON_PSI_ELEMENT_CREATE: Method = Method.getMethod(VfsTracerTrampoline::onPsiElementCreate.javaMethod)
-        val WRAP_STUB_INDEX_PROCESSOR: Method = Method.getMethod(VfsTracerTrampoline::wrapStubIndexProcessor.javaMethod)
+        val ON_STUB_INDEX_PROCESSOR_CREATE: Method = Method.getMethod(VfsTracerTrampoline::onStubIndexProcessorCreate.javaMethod)
         const val ASM_API = ASM8
     }
 
@@ -228,8 +228,8 @@ private class TracerClassFileTransformer: ClassFileTransformer {
                         mv.visitMethodInsn(
                             Opcodes.INVOKESTATIC,
                             HOOK_CLASS_JVM_NAME,
-                            WRAP_STUB_INDEX_PROCESSOR.name,
-                            WRAP_STUB_INDEX_PROCESSOR.descriptor,
+                            ON_STUB_INDEX_PROCESSOR_CREATE.name,
+                            ON_STUB_INDEX_PROCESSOR_CREATE.descriptor,
                             false
                         )
                         mv.visitVarInsn(Opcodes.ASTORE, 7)
