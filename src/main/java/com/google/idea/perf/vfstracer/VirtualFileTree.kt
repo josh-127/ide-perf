@@ -22,6 +22,7 @@ import javax.swing.tree.TreePath
 
 interface VirtualFileTree {
     val name: String
+    val stubIndexAccesses: Int
     val psiWraps: Int
     val reparseCount: Int
     val children: Map<String, VirtualFileTree>
@@ -30,7 +31,9 @@ interface VirtualFileTree {
     val isFile: Boolean get() = children.isEmpty()
 
     fun statEquals(other: VirtualFileTree): Boolean =
-        psiWraps == other.psiWraps && reparseCount == other.reparseCount
+        stubIndexAccesses == other.stubIndexAccesses
+                && psiWraps == other.psiWraps
+                && reparseCount == other.reparseCount
 }
 
 class MutableVirtualFileTree(
@@ -40,6 +43,7 @@ class MutableVirtualFileTree(
         fun createRoot() = MutableVirtualFileTree("[root]")
     }
 
+    override var stubIndexAccesses: Int = 0
     override var psiWraps: Int = 0
     override var reparseCount: Int = 0
     override val children: MutableMap<String, MutableVirtualFileTree> = TreeMap()
@@ -50,16 +54,23 @@ class MutableVirtualFileTree(
             thisChild.accumulate(child)
         }
 
+        stubIndexAccesses += tree.stubIndexAccesses
         psiWraps += tree.psiWraps
         reparseCount += tree.reparseCount
     }
 
-    fun accumulate(path: String, psiWraps: Int, reparseCount: Int) {
+    fun accumulate(
+        path: String,
+        stubIndexAccesses: Int = 0,
+        psiWraps: Int = 0,
+        reparseCount: Int = 0
+    ) {
         val parts = getParts(path)
         var tree = this
 
         for (part in parts) {
             val child = tree.children.getOrPut(part) { MutableVirtualFileTree(part) }
+            child.stubIndexAccesses += stubIndexAccesses
             child.psiWraps += psiWraps
             child.reparseCount += reparseCount
             tree = child
@@ -114,6 +125,7 @@ class VirtualFileTreeDiff private constructor(
     private val changedChildren: Map<String, VirtualFileTreeDiff>
 ): VirtualFileTree {
     override val name get() = underlyingTree.name
+    override val stubIndexAccesses: Int get() = underlyingTree.stubIndexAccesses
     override val psiWraps: Int get() = underlyingTree.psiWraps
     override val reparseCount: Int get() = underlyingTree.reparseCount
     override val children: Map<String, VirtualFileTree> get() = underlyingTree.children
@@ -187,6 +199,7 @@ class VirtualFileTreeDiff private constructor(
 
                 return VirtualFileTreeDiff(
                     MutableVirtualFileTree(newTree.name).apply {
+                        stubIndexAccesses = newTree.stubIndexAccesses
                         psiWraps = newTree.psiWraps
                         reparseCount = newTree.reparseCount
                     },

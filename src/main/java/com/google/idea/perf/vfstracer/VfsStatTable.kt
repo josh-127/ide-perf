@@ -27,12 +27,13 @@ import javax.swing.table.DefaultTableCellRenderer
 import javax.swing.table.JTableHeader
 import javax.swing.table.TableRowSorter
 
-private const val COL_COUNT = 3
+private const val COL_COUNT = 4
 
 // Table columns.
 private const val FILE_NAME = 0
-private const val PSI_WRAP_OPERATIONS = 1
-private const val AST_NODE_REPARSES = 2
+private const val STUB_INDEX_ACCESSES = 1
+private const val PSI_WRAP_OPERATIONS = 2
+private const val AST_NODE_REPARSES = 3
 
 class VfsStatTableModel: AbstractTableModel() {
     private var data: List<VirtualFileStats>? = null
@@ -46,14 +47,15 @@ class VfsStatTableModel: AbstractTableModel() {
 
     override fun getColumnName(column: Int): String = when (column) {
         FILE_NAME -> "file name"
-        PSI_WRAP_OPERATIONS -> "psi wrap ops"
-        AST_NODE_REPARSES -> "ast node reparses"
+        STUB_INDEX_ACCESSES -> "stub index accesses"
+        PSI_WRAP_OPERATIONS -> "psi wraps"
+        AST_NODE_REPARSES -> "ast reparses"
         else -> error(column)
     }
 
     override fun getColumnClass(columnIndex: Int): Class<*> = when (columnIndex) {
         FILE_NAME -> java.lang.String::class.java
-        PSI_WRAP_OPERATIONS, AST_NODE_REPARSES -> java.lang.Long::class.java
+        STUB_INDEX_ACCESSES, PSI_WRAP_OPERATIONS, AST_NODE_REPARSES -> java.lang.Integer::class.java
         else -> error(columnIndex)
     }
 
@@ -63,6 +65,7 @@ class VfsStatTableModel: AbstractTableModel() {
         val stats = data!![rowIndex]
         return when (columnIndex) {
             FILE_NAME -> stats.fileName
+            STUB_INDEX_ACCESSES -> stats.stubIndexAccesses
             PSI_WRAP_OPERATIONS -> stats.psiWraps
             AST_NODE_REPARSES -> stats.reparseCount
             else -> error(columnIndex)
@@ -87,13 +90,13 @@ class VfsStatTable(private val model: VfsStatTableModel): JBTable(model) {
             tableColumn.minWidth = 100
             tableColumn.preferredWidth = when (col) {
                 FILE_NAME -> Int.MAX_VALUE
-                PSI_WRAP_OPERATIONS, AST_NODE_REPARSES -> 100
+                STUB_INDEX_ACCESSES, PSI_WRAP_OPERATIONS, AST_NODE_REPARSES -> 100
                 else -> tableColumn.preferredWidth
             }
 
             // Locale-aware and unit-aware rendering for numbers.
             when (col) {
-                PSI_WRAP_OPERATIONS, AST_NODE_REPARSES -> {
+                STUB_INDEX_ACCESSES, PSI_WRAP_OPERATIONS, AST_NODE_REPARSES -> {
                     tableColumn.cellRenderer = object: DefaultTableCellRenderer() {
                         init {
                             horizontalAlignment = SwingConstants.RIGHT

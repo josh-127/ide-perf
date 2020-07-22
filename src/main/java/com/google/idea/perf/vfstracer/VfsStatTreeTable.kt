@@ -25,9 +25,10 @@ import javax.swing.event.TreeModelEvent
 import javax.swing.event.TreeModelListener
 import javax.swing.tree.TreePath
 
-private const val COLUMN_COUNT = 2
-private const val PSI_WRAP_OPS = 0
-private const val AST_NODE_REPARSES = 1
+private const val COLUMN_COUNT = 3
+private const val STUB_INDEX_ACCESSES = 0
+private const val PSI_WRAP_OPS = 1
+private const val AST_NODE_REPARSES = 2
 
 private operator fun VirtualFileTree.get(index: Int): VirtualFileTree =
     children.values.toTypedArray()[index]
@@ -92,19 +93,21 @@ class VfsStatTreeTableModel: TreeTableModel {
     override fun getColumnCount(): Int = COLUMN_COUNT
 
     override fun getColumnName(column: Int): String = when (column) {
-        PSI_WRAP_OPS -> "psi wrap ops"
-        AST_NODE_REPARSES -> "ast node reparses"
+        STUB_INDEX_ACCESSES -> "stub index accesses"
+        PSI_WRAP_OPS -> "psi wraps"
+        AST_NODE_REPARSES -> "ast reparses"
         else -> error(column)
     }
 
     override fun getColumnClass(column: Int): Class<*> = when (column) {
-        PSI_WRAP_OPS, AST_NODE_REPARSES -> java.lang.Long::class.java
+        STUB_INDEX_ACCESSES, PSI_WRAP_OPS, AST_NODE_REPARSES -> java.lang.Integer::class.java
         else -> error(column)
     }
 
     override fun getValueAt(node: Any?, column: Int): Any {
         node as VirtualFileTree
         return when (column) {
+            STUB_INDEX_ACCESSES -> node.stubIndexAccesses
             PSI_WRAP_OPS -> node.psiWraps
             AST_NODE_REPARSES -> node.reparseCount
             else -> error(column)

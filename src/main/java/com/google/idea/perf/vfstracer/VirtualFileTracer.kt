@@ -18,23 +18,24 @@ package com.google.idea.perf.vfstracer
 
 import com.google.idea.perf.methodtracer.AgentLoader
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
+import com.intellij.util.Processor
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassReader.SKIP_FRAMES
 import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.ClassWriter.COMPUTE_FRAMES
 import org.objectweb.asm.ClassWriter.COMPUTE_MAXS
+import org.objectweb.asm.Label
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Opcodes.ASM8
 import org.objectweb.asm.Type
 import org.objectweb.asm.commons.AdviceAdapter
 import org.objectweb.asm.commons.Method
-import java.io.File
 import java.lang.instrument.ClassFileTransformer
 import java.security.ProtectionDomain
-import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.reflect.jvm.javaMethod
@@ -42,6 +43,7 @@ import kotlin.reflect.jvm.javaMethod
 @Deprecated("Use VirtualFileTree")
 interface VirtualFileStats {
     val fileName: String
+    val stubIndexAccesses: Int
     val psiWraps: Int
     val reparseCount: Int
 }
@@ -49,12 +51,15 @@ interface VirtualFileStats {
 private class MutableVirtualFileStats(
     override val fileName: String
 ): VirtualFileStats {
+    override var stubIndexAccesses: Int = 0
     override var psiWraps: Int = 0
     override var reparseCount: Int = 0
 }
 
 private const val COMPOSITE_ELEMENT_CLASS = "com.intellij.psi.impl.source.tree.CompositeElement"
+private const val STUB_INDEX_IMPL_CLASS = "com.intellij.psi.stubs.StubIndexImpl"
 private val COMPOSITE_ELEMENT_JVM_CLASS = COMPOSITE_ELEMENT_CLASS.replace('.', '/')
+private val STUB_INDEX_IMPL_JVM_CLASS = STUB_INDEX_IMPL_CLASS.replace('.', '/')
 private val LOG = Logger.getInstance(VirtualFileTracer::class.java)
 
 object VirtualFileTracer {
@@ -72,12 +77,17 @@ object VirtualFileTracer {
         if (compositeElementClass == null) {
             LOG.error("Failed to get $compositeElementClass class.")
         }
+        val stubIndexImplClass = classes.firstOrNull { it.name == STUB_INDEX_IMPL_CLASS }
+        if (stubIndexImplClass == null) {
+            LOG.error("Failed to get $stubIndexImplClass class.")
+        }
 
         VfsTracerTrampoline.installHook(VfsTracerHookImpl())
 
         transformer = TracerClassFileTransformer()
         instrumentation.addTransformer(transformer, true)
         instrumentation.retransformClasses(compositeElementClass)
+        instrumentation.retransformClasses(stubIndexImplClass)
     }
 
     fun stopVfsTracing() {
@@ -113,33 +123,65 @@ private object VirtualFileTracerImpl {
         }
     }
 
-    fun incrementPsiWrap(fileName: String) {
+    fun incrementStats(
+        fileName: String,
+        stubIndexAccesses: Int = 0,
+        psiWraps: Int = 0,
+        reparseCount: Int = 0
+    ) {
         lock.withLock {
-            currentTree.accumulate(fileName, 1, 0)
+            currentTree.accumulate(fileName, stubIndexAccesses, psiWraps, reparseCount)
 
             val stats = fileStats.getOrPut(fileName) { MutableVirtualFileStats(fileName) }
-            stats.psiWraps++
+            stats.stubIndexAccesses += stubIndexAccesses
+            stats.psiWraps += psiWraps
+            stats.reparseCount += reparseCount
         }
     }
 }
 
 private class VfsTracerHookImpl: VfsTracerHook {
     override fun onPsiElementCreate(psiElement: Any?) {
-        if (psiElement is PsiElement && psiElement.isValid) {
-            val file = psiElement.containingFile
-            val virtualFile = file.virtualFile
-            val fileName = virtualFile?.canonicalPath
+        if (psiElement is PsiElement) {
+            val fileName = getFileName(psiElement)
             if (fileName != null) {
-                VirtualFileTracerImpl.incrementPsiWrap(fileName)
+                VirtualFileTracerImpl.incrementStats(fileName, psiWraps = 1)
             }
         }
+    }
+
+    override fun wrapStubIndexProcessor(processor: Any?): Any? {
+        if (processor == null) {
+            return null
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        processor as Processor<PsiElement>
+
+        return Processor<PsiElement> {
+            val fileName = getFileName(it)
+            if (fileName != null) {
+                VirtualFileTracerImpl.incrementStats(fileName, stubIndexAccesses = 1)
+            }
+            processor.process(it)
+        }
+    }
+
+    private fun getFileName(psiElement: PsiElement?): String? {
+        if (psiElement != null && psiElement.isValid) {
+            val file = psiElement.containingFile
+            val virtualFile = file.virtualFile
+            return virtualFile?.canonicalPath
+        }
+        return null
     }
 }
 
 private class TracerClassFileTransformer: ClassFileTransformer {
     companion object {
-        val HOOK_CLASS_NAME: String = Type.getInternalName(VfsTracerTrampoline::class.java)
+        val HOOK_CLASS_JVM_NAME: String = Type.getInternalName(VfsTracerTrampoline::class.java)
         val ON_PSI_ELEMENT_CREATE: Method = Method.getMethod(VfsTracerTrampoline::onPsiElementCreate.javaMethod)
+        val WRAP_STUB_INDEX_PROCESSOR: Method = Method.getMethod(VfsTracerTrampoline::wrapStubIndexProcessor.javaMethod)
         const val ASM_API = ASM8
     }
 
@@ -151,10 +193,11 @@ private class TracerClassFileTransformer: ClassFileTransformer {
         classfileBuffer: ByteArray
     ): ByteArray? {
         try {
-            if (className == COMPOSITE_ELEMENT_JVM_CLASS) {
-                return tryTransformCompositeElement(classfileBuffer)
+            return when (className) {
+                COMPOSITE_ELEMENT_JVM_CLASS -> tryTransformCompositeElement(classfileBuffer)
+                STUB_INDEX_IMPL_JVM_CLASS -> tryTransformStubIndex(classfileBuffer)
+                else -> null
             }
-            return null
         }
         catch (e: Throwable) {
             LOG.warn("Failed to instrument class $className", e)
@@ -185,11 +228,49 @@ private class TracerClassFileTransformer: ClassFileTransformer {
                         mv.visitInsn(Opcodes.DUP)
                         mv.visitMethodInsn(
                             Opcodes.INVOKESTATIC,
-                            HOOK_CLASS_NAME,
+                            HOOK_CLASS_JVM_NAME,
                             ON_PSI_ELEMENT_CREATE.name,
                             ON_PSI_ELEMENT_CREATE.descriptor,
                             false
                         )
+                    }
+                }
+            }
+        }
+
+        reader.accept(classVisitor, SKIP_FRAMES)
+        return writer.toByteArray()
+    }
+
+    private fun tryTransformStubIndex(classBytes: ByteArray): ByteArray {
+        val reader = ClassReader(classBytes)
+        val writer = ClassWriter(reader, COMPUTE_MAXS or COMPUTE_FRAMES)
+
+        val classVisitor = object: ClassVisitor(ASM_API, writer) {
+            override fun visitMethod(
+                access: Int,
+                name: String?,
+                descriptor: String?,
+                signature: String?,
+                exceptions: Array<out String>?
+            ): MethodVisitor {
+                if (name != "processElements" || descriptor != "(Lcom/intellij/psi/stubs/StubIndexKey;Ljava/lang/Object;Lcom/intellij/openapi/project/Project;Lcom/intellij/psi/search/GlobalSearchScope;Lcom/intellij/util/indexing/IdFilter;Ljava/lang/Class;Lcom/intellij/util/Processor;)Z") {
+                    return super.visitMethod(access, name, descriptor, signature, exceptions)
+                }
+
+                val methodWriter = cv.visitMethod(access, name, descriptor, signature, exceptions)
+
+                return object: AdviceAdapter(ASM_API, methodWriter, access, name, descriptor) {
+                    override fun onMethodEnter() {
+                        mv.visitVarInsn(Opcodes.ALOAD, 7)
+                        mv.visitMethodInsn(
+                            Opcodes.INVOKESTATIC,
+                            HOOK_CLASS_JVM_NAME,
+                            WRAP_STUB_INDEX_PROCESSOR.name,
+                            WRAP_STUB_INDEX_PROCESSOR.descriptor,
+                            false
+                        )
+                        mv.visitVarInsn(Opcodes.ASTORE, 7)
                     }
                 }
             }
