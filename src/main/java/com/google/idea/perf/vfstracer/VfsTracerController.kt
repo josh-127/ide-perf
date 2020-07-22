@@ -25,7 +25,8 @@ class VfsTracerController(
     private val view: VfsTracerView,
     parentDisposable: Disposable
 ): TracerController("VFS Tracer", view) {
-    private val accumulatedStats = MutableVirtualFileTree.createRoot()
+    private var accumulatedStats = MutableVirtualFileTree.createRoot()
+    private var collectedStats = VirtualFileTree.EMPTY
 
     init {
         parentDisposable.attachChild(this)
@@ -35,30 +36,36 @@ class VfsTracerController(
     }
 
     override fun updateModel(): Boolean {
-        return true
+        collectedStats = VirtualFileTracer.collectAndReset()
+        return collectedStats.children.isNotEmpty()
     }
 
     override fun updateUi() {
-        val treeStats = VirtualFileTracer.collectAndReset()
+        accumulatedStats.accumulate(collectedStats)
+        val listStats = accumulatedStats.flattenedList()
 
-        if (treeStats.children.isNotEmpty()) {
-            accumulatedStats.accumulate(treeStats)
-            val listStats = accumulatedStats.flattenedList()
-
-            getApplication().invokeAndWait {
-                view.listView.setStats(listStats)
-                view.treeView.setStats(accumulatedStats)
-            }
+        getApplication().invokeAndWait {
+            view.listView.setStats(listStats)
+            view.treeView.setStats(accumulatedStats)
         }
     }
 
     override fun handleRawCommandFromEdt(text: String) {
-        val command = text.trim()
-        if (command == "start") {
-            VirtualFileTracer.startVfsTracing()
-        }
-        else if (command == "stop") {
-            VirtualFileTracer.stopVfsTracing()
+        executor.execute { handleCommand(text.trim()) }
+    }
+
+    private fun handleCommand(command: String) {
+        when (command) {
+            "start" -> VirtualFileTracer.startVfsTracing()
+            "stop" -> VirtualFileTracer.stopVfsTracing()
+            "clear" -> {
+                accumulatedStats.clear()
+                updateUi()
+            }
+            "reset" -> {
+                accumulatedStats = MutableVirtualFileTree.createRoot()
+                updateUi()
+            }
         }
     }
 }

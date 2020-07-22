@@ -96,7 +96,7 @@ private object VirtualFileTracerImpl {
         }
     }
 
-    fun incrementStats(fileName: String, stubIndexAccesses: Int = 0, psiElementWraps: Int = 0) {
+    fun accumulateStats(fileName: String, stubIndexAccesses: Int = 0, psiElementWraps: Int = 0) {
         lock.withLock {
             currentTree.accumulate(fileName, stubIndexAccesses, psiElementWraps)
         }
@@ -108,7 +108,7 @@ private class VfsTracerHookImpl: VfsTracerHook {
         if (psiElement is PsiElement) {
             val fileName = getFileName(psiElement)
             if (fileName != null) {
-                VirtualFileTracerImpl.incrementStats(fileName, psiElementWraps = 1)
+                VirtualFileTracerImpl.accumulateStats(fileName, psiElementWraps = 1)
             }
         }
     }
@@ -124,7 +124,7 @@ private class VfsTracerHookImpl: VfsTracerHook {
         return Processor<PsiElement> {
             val fileName = getFileName(it)
             if (fileName != null) {
-                VirtualFileTracerImpl.incrementStats(fileName, stubIndexAccesses = 1)
+                VirtualFileTracerImpl.accumulateStats(fileName, stubIndexAccesses = 1)
             }
             processor.process(it)
         }

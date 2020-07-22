@@ -92,7 +92,7 @@ class VfsTracerView(parentDisposable: Disposable): TracerView() {
             ProjectManager.getInstance().defaultProject,
             ValuesCompletionProvider(
                 DefaultTextCompletionValueDescriptor.StringValueDescriptor(),
-                listOf("start", "stop")
+                listOf("start", "stop", "clear", "reset")
             ),
             "",
             false,

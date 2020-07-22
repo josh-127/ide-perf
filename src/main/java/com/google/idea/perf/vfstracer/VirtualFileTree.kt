@@ -21,6 +21,10 @@ import java.util.*
 
 /** A tree containing VirtualFile statistics. */
 interface VirtualFileTree {
+    companion object {
+        val EMPTY: VirtualFileTree = MutableVirtualFileTree.createRoot()
+    }
+
     val name: String
     val stubIndexAccesses: Int
     val psiElementWraps: Int
@@ -43,6 +47,17 @@ class MutableVirtualFileTree(
     override var stubIndexAccesses: Int = 0
     override var psiElementWraps: Int = 0
     override val children: MutableMap<String, MutableVirtualFileTree> = TreeMap()
+
+    fun clear() {
+        fun clearImpl(tree: MutableVirtualFileTree) {
+            tree.stubIndexAccesses = 0
+            tree.psiElementWraps = 0
+            for (child in tree.children.values) {
+                clearImpl(child)
+            }
+        }
+        clearImpl(this)
+    }
 
     fun accumulate(tree: VirtualFileTree) {
         for ((childName, child) in tree.children) {

@@ -75,7 +75,12 @@ class VfsStatTreeTableModel: TreeTableModel {
                 parent: MutableVirtualFileTree,
                 child: MutableVirtualFileTree
             ) {
-                TODO("Not yet implemented")
+                val treePath = TreePath(path.parts)
+                val indexes = intArrayOf(parent.indexOf(child))
+                val children = arrayOf(child)
+                val event = TreeModelEvent(this, treePath, indexes, children)
+                parent.children.remove(child.name)
+                forEachListener { it.treeNodesRemoved(event) }
             }
 
             private fun forEachListener(action: (TreeModelListener) -> Unit) {
