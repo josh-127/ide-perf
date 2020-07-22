@@ -46,8 +46,6 @@ private val LOG = Logger.getInstance(VirtualFileTracer::class.java)
 
 /** Records and manages VirtualFile statistics. */
 object VirtualFileTracer {
-    private var transformer: TracerClassFileTransformer? = null
-
     fun startVfsTracing() {
         val instrumentation = AgentLoader.instrumentation
         if (instrumentation == null) {
@@ -65,19 +63,17 @@ object VirtualFileTracer {
             LOG.error("Failed to get $stubIndexImplClass class.")
         }
 
+        VirtualFileTracerImpl.isEnabled = true
         VfsTracerTrampoline.installHook(VfsTracerHookImpl())
 
-        transformer = TracerClassFileTransformer()
+        val transformer = TracerClassFileTransformer()
         instrumentation.addTransformer(transformer, true)
         instrumentation.retransformClasses(compositeElementClass)
         instrumentation.retransformClasses(stubIndexImplClass)
     }
 
     fun stopVfsTracing() {
-        if (transformer != null) {
-            val instrumentation = AgentLoader.instrumentation
-            instrumentation?.removeTransformer(transformer)
-        }
+        VirtualFileTracerImpl.isEnabled = false
     }
 
     /** Collect and reset the virtual file trees. */
@@ -85,6 +81,9 @@ object VirtualFileTracer {
 }
 
 private object VirtualFileTracerImpl {
+    @Volatile
+    var isEnabled: Boolean = false
+
     var currentTree = MutableVirtualFileTree.createRoot()
     val lock = ReentrantLock()
 
@@ -105,7 +104,7 @@ private object VirtualFileTracerImpl {
 
 private class VfsTracerHookImpl: VfsTracerHook {
     override fun onPsiElementCreate(psiElement: Any?) {
-        if (psiElement is PsiElement) {
+        if (VirtualFileTracerImpl.isEnabled && psiElement is PsiElement) {
             val fileName = getFileName(psiElement)
             if (fileName != null) {
                 VirtualFileTracerImpl.accumulateStats(fileName, psiElementWraps = 1)
@@ -114,8 +113,8 @@ private class VfsTracerHookImpl: VfsTracerHook {
     }
 
     override fun onStubIndexProcessorCreate(processor: Any?): Any? {
-        if (processor == null) {
-            return null
+        if (!VirtualFileTracerImpl.isEnabled || processor == null) {
+            return processor
         }
 
         @Suppress("UNCHECKED_CAST")
