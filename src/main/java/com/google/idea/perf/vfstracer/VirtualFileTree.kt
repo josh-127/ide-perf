@@ -18,8 +18,8 @@ package com.google.idea.perf.vfstracer
 
 import java.io.File
 import java.util.*
-import javax.swing.tree.TreePath
 
+/** A tree containing VirtualFile statistics. */
 interface VirtualFileTree {
     val name: String
     val stubIndexAccesses: Int
@@ -86,17 +86,29 @@ class MutableVirtualFileTree(
     override fun toString(): String = name
 }
 
-class VirtualFileTreePath(val parts: Array<MutableVirtualFileTree>) {
-    fun toTreePath(): TreePath = TreePath(parts)
-}
+/** A VirtualFileTree path where each part contains a reference to each node. */
+class VirtualFileTreePath(val parts: Array<VirtualFileTree>)
 
 interface TreePatchEventListener {
+    /**
+     * Called when the diff contains a new pending tree node.
+     * @param path A path of tree nodes that leads up to {@code parent}
+     * @param parent The parent of the new tree node
+     * @param child The new tree node
+     */
     fun onTreeInsert(
         path: VirtualFileTreePath,
         parent: MutableVirtualFileTree,
         child: MutableVirtualFileTree
     )
 
+    /**
+     * Called when the diff contains a modified tree node.
+     * @param path A path of tree nodes that leads up to {@code parent}
+     * @param parent The parent of the modified tree node
+     * @param child The existing tree node pending for modification
+     * @param newChild A new tree node containing the modified values
+     */
     fun onTreeChange(
         path: VirtualFileTreePath,
         parent: MutableVirtualFileTree,
@@ -104,6 +116,12 @@ interface TreePatchEventListener {
         newChild: VirtualFileTree
     )
 
+    /**
+     * Called when the diff contains a removed tree node.
+     * @param path A path of tree nodes that leads up to {@code parent}
+     * @param parent The parent of the removed tree node
+     * @param child The existing tree node pending for removal
+     */
     fun onTreeRemove(
         path: VirtualFileTreeDiff,
         parent: MutableVirtualFileTree,
@@ -111,6 +129,7 @@ interface TreePatchEventListener {
     )
 }
 
+/** A recursive diff between two VirtualFileTree instances. */
 class VirtualFileTreeDiff private constructor(
     private val underlyingTree: MutableVirtualFileTree,
     private val newTree: VirtualFileTree,
@@ -122,6 +141,7 @@ class VirtualFileTreeDiff private constructor(
     override val psiElementWraps: Int get() = underlyingTree.psiElementWraps
     override val children: Map<String, VirtualFileTree> get() = underlyingTree.children
 
+    /** Recursively applies a patch function to the @{code underlyingTree} based on the diff. */
     fun patch(listener: TreePatchEventListener) {
         fun build(path: Stack<MutableVirtualFileTree>) = VirtualFileTreePath(path.toTypedArray())
 
@@ -163,6 +183,7 @@ class VirtualFileTreeDiff private constructor(
     }
 
     companion object {
+        /** Creates a diff based on the changes from {@code oldTree} to {@param newTree}. */
         fun create(
             oldTree: MutableVirtualFileTree?,
             newTree: VirtualFileTree

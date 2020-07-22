@@ -49,7 +49,7 @@ class VfsStatTreeTableModel: TreeTableModel {
                 child: MutableVirtualFileTree
             ) {
                 parent.children[child.name] = child
-                val treePath = path.toTreePath()
+                val treePath = TreePath(path.parts)
                 val event = TreeModelEvent(this, treePath)
                 forEachListener { it.treeStructureChanged(event) }
             }
@@ -63,7 +63,7 @@ class VfsStatTreeTableModel: TreeTableModel {
                 child.stubIndexAccesses = newChild.stubIndexAccesses
                 child.psiElementWraps = newChild.psiElementWraps
 
-                val treePath = path.toTreePath()
+                val treePath = TreePath(path.parts)
                 val indexes = intArrayOf(parent.indexOf(child))
                 val children = arrayOf(child)
                 val event = TreeModelEvent(this, treePath, indexes, children)

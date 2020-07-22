@@ -44,6 +44,7 @@ private val COMPOSITE_ELEMENT_JVM_CLASS = COMPOSITE_ELEMENT_CLASS.replace('.', '
 private val STUB_INDEX_IMPL_JVM_CLASS = STUB_INDEX_IMPL_CLASS.replace('.', '/')
 private val LOG = Logger.getInstance(VirtualFileTracer::class.java)
 
+/** Records and manages VirtualFile statistics. */
 object VirtualFileTracer {
     private var transformer: TracerClassFileTransformer? = null
 
@@ -79,8 +80,8 @@ object VirtualFileTracer {
         }
     }
 
-    fun collectAndReset(): VirtualFileTree =
-        VirtualFileTracerImpl.collectAndReset()
+    /** Collect and reset the virtual file trees. */
+    fun collectAndReset(): VirtualFileTree = VirtualFileTracerImpl.collectAndReset()
 }
 
 private object VirtualFileTracerImpl {

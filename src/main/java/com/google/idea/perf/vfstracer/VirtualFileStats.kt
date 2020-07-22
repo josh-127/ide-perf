@@ -24,7 +24,7 @@ data class VirtualFileStats(
     val psiElementWraps: Int
 )
 
-fun VirtualFileTree.flatten(): List<VirtualFileStats> {
+fun VirtualFileTree.flattenedList(): List<VirtualFileStats> {
     fun flattenImpl(
         tree: VirtualFileTree,
         pathBuilder: Stack<String>,

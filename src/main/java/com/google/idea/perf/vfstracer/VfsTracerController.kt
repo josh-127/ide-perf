@@ -43,7 +43,7 @@ class VfsTracerController(
 
         if (treeStats.children.isNotEmpty()) {
             accumulatedStats.accumulate(treeStats)
-            val listStats = accumulatedStats.flatten()
+            val listStats = accumulatedStats.flattenedList()
 
             getApplication().invokeAndWait {
                 view.listView.setStats(listStats)
