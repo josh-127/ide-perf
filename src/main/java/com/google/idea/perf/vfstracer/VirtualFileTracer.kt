@@ -45,7 +45,6 @@ interface VirtualFileStats {
     val fileName: String
     val stubIndexAccesses: Int
     val psiWraps: Int
-    val reparseCount: Int
 }
 
 private class MutableVirtualFileStats(
@@ -53,7 +52,6 @@ private class MutableVirtualFileStats(
 ): VirtualFileStats {
     override var stubIndexAccesses: Int = 0
     override var psiWraps: Int = 0
-    override var reparseCount: Int = 0
 }
 
 private const val COMPOSITE_ELEMENT_CLASS = "com.intellij.psi.impl.source.tree.CompositeElement"
@@ -126,16 +124,14 @@ private object VirtualFileTracerImpl {
     fun incrementStats(
         fileName: String,
         stubIndexAccesses: Int = 0,
-        psiWraps: Int = 0,
-        reparseCount: Int = 0
+        psiWraps: Int = 0
     ) {
         lock.withLock {
-            currentTree.accumulate(fileName, stubIndexAccesses, psiWraps, reparseCount)
+            currentTree.accumulate(fileName, stubIndexAccesses, psiWraps)
 
             val stats = fileStats.getOrPut(fileName) { MutableVirtualFileStats(fileName) }
             stats.stubIndexAccesses += stubIndexAccesses
             stats.psiWraps += psiWraps
-            stats.reparseCount += reparseCount
         }
     }
 }

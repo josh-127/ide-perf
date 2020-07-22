@@ -18,17 +18,15 @@ package com.google.idea.perf.vfstracer
 
 import com.intellij.ui.components.JBTreeTable
 import com.intellij.ui.treeStructure.treetable.TreeTableModel
-import java.util.*
 import javax.swing.JTree
 import javax.swing.event.EventListenerList
 import javax.swing.event.TreeModelEvent
 import javax.swing.event.TreeModelListener
 import javax.swing.tree.TreePath
 
-private const val COLUMN_COUNT = 3
+private const val COLUMN_COUNT = 2
 private const val STUB_INDEX_ACCESSES = 0
-private const val PSI_WRAP_OPS = 1
-private const val AST_NODE_REPARSES = 2
+private const val PSI_WRAPS = 1
 
 private operator fun VirtualFileTree.get(index: Int): VirtualFileTree =
     children.values.toTypedArray()[index]
@@ -63,7 +61,6 @@ class VfsStatTreeTableModel: TreeTableModel {
                 newChild: VirtualFileTree
             ) {
                 child.psiWraps = newChild.psiWraps
-                child.reparseCount = newChild.reparseCount
 
                 val treePath = path.toTreePath()
                 val indexes = intArrayOf(parent.indexOf(child))
@@ -94,13 +91,12 @@ class VfsStatTreeTableModel: TreeTableModel {
 
     override fun getColumnName(column: Int): String = when (column) {
         STUB_INDEX_ACCESSES -> "stub index accesses"
-        PSI_WRAP_OPS -> "psi wraps"
-        AST_NODE_REPARSES -> "ast reparses"
+        PSI_WRAPS -> "psi wraps"
         else -> error(column)
     }
 
     override fun getColumnClass(column: Int): Class<*> = when (column) {
-        STUB_INDEX_ACCESSES, PSI_WRAP_OPS, AST_NODE_REPARSES -> java.lang.Integer::class.java
+        STUB_INDEX_ACCESSES, PSI_WRAPS -> java.lang.Integer::class.java
         else -> error(column)
     }
 
@@ -108,8 +104,7 @@ class VfsStatTreeTableModel: TreeTableModel {
         node as VirtualFileTree
         return when (column) {
             STUB_INDEX_ACCESSES -> node.stubIndexAccesses
-            PSI_WRAP_OPS -> node.psiWraps
-            AST_NODE_REPARSES -> node.reparseCount
+            PSI_WRAPS -> node.psiWraps
             else -> error(column)
         }
     }
