@@ -61,6 +61,8 @@ class MutableVirtualFileTree(
     ) {
         val parts = getParts(path)
         var tree = this
+        tree.stubIndexAccesses += stubIndexAccesses
+        tree.psiElementWraps += psiElementWraps
 
         for (part in parts) {
             val child = tree.children.getOrPut(part) { MutableVirtualFileTree(part) }
