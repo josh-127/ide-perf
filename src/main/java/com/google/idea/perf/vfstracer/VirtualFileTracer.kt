@@ -40,20 +40,6 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.reflect.jvm.javaMethod
 
-@Deprecated("Use VirtualFileTree")
-interface VirtualFileStats {
-    val fileName: String
-    val stubIndexAccesses: Int
-    val psiWraps: Int
-}
-
-private class MutableVirtualFileStats(
-    override val fileName: String
-): VirtualFileStats {
-    override var stubIndexAccesses: Int = 0
-    override var psiWraps: Int = 0
-}
-
 private const val COMPOSITE_ELEMENT_CLASS = "com.intellij.psi.impl.source.tree.CompositeElement"
 private const val STUB_INDEX_IMPL_CLASS = "com.intellij.psi.stubs.StubIndexImpl"
 private val COMPOSITE_ELEMENT_JVM_CLASS = COMPOSITE_ELEMENT_CLASS.replace('.', '/')
@@ -97,14 +83,10 @@ object VirtualFileTracer {
 
     fun collectAndReset(): VirtualFileTree =
         VirtualFileTracerImpl.collectAndReset()
-
-    val fileStats: Map<String, VirtualFileStats> get() =
-        VirtualFileTracerImpl.getCurrentFileStats()
 }
 
 private object VirtualFileTracerImpl {
     var currentTree = MutableVirtualFileTree.createRoot()
-    val fileStats: MutableMap<String, MutableVirtualFileStats> = mutableMapOf()
     val lock = ReentrantLock()
 
     fun collectAndReset(): VirtualFileTree {
@@ -115,23 +97,9 @@ private object VirtualFileTracerImpl {
         }
     }
 
-    fun getCurrentFileStats(): Map<String, VirtualFileStats> {
-        lock.withLock {
-            return fileStats.toMap()
-        }
-    }
-
-    fun incrementStats(
-        fileName: String,
-        stubIndexAccesses: Int = 0,
-        psiWraps: Int = 0
-    ) {
+    fun incrementStats(fileName: String, stubIndexAccesses: Int = 0, psiWraps: Int = 0) {
         lock.withLock {
             currentTree.accumulate(fileName, stubIndexAccesses, psiWraps)
-
-            val stats = fileStats.getOrPut(fileName) { MutableVirtualFileStats(fileName) }
-            stats.stubIndexAccesses += stubIndexAccesses
-            stats.psiWraps += psiWraps
         }
     }
 }

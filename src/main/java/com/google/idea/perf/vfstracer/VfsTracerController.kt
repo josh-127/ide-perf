@@ -39,13 +39,16 @@ class VfsTracerController(
     }
 
     override fun updateUi() {
-        val listStats = VirtualFileTracer.fileStats.values.toList()
         val treeStats = VirtualFileTracer.collectAndReset()
-        accumulatedStats.accumulate(treeStats)
 
-        getApplication().invokeAndWait {
-            view.listView.setStats(listStats)
-            view.treeView.setStats(accumulatedStats)
+        if (treeStats.children.isNotEmpty()) {
+            accumulatedStats.accumulate(treeStats)
+            val listStats = accumulatedStats.flatten()
+
+            getApplication().invokeAndWait {
+                view.listView.setStats(listStats)
+                view.treeView.setStats(accumulatedStats)
+            }
         }
     }
 
