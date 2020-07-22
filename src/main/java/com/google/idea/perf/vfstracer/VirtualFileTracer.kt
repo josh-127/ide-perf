@@ -18,7 +18,6 @@ package com.google.idea.perf.vfstracer
 
 import com.google.idea.perf.methodtracer.AgentLoader
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.util.Processor
 import org.objectweb.asm.ClassReader
@@ -27,7 +26,6 @@ import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.ClassWriter.COMPUTE_FRAMES
 import org.objectweb.asm.ClassWriter.COMPUTE_MAXS
-import org.objectweb.asm.Label
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Opcodes.ASM8
@@ -97,9 +95,9 @@ private object VirtualFileTracerImpl {
         }
     }
 
-    fun incrementStats(fileName: String, stubIndexAccesses: Int = 0, psiWraps: Int = 0) {
+    fun incrementStats(fileName: String, stubIndexAccesses: Int = 0, psiElementWraps: Int = 0) {
         lock.withLock {
-            currentTree.accumulate(fileName, stubIndexAccesses, psiWraps)
+            currentTree.accumulate(fileName, stubIndexAccesses, psiElementWraps)
         }
     }
 }
@@ -109,7 +107,7 @@ private class VfsTracerHookImpl: VfsTracerHook {
         if (psiElement is PsiElement) {
             val fileName = getFileName(psiElement)
             if (fileName != null) {
-                VirtualFileTracerImpl.incrementStats(fileName, psiWraps = 1)
+                VirtualFileTracerImpl.incrementStats(fileName, psiElementWraps = 1)
             }
         }
     }

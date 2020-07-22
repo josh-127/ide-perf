@@ -64,7 +64,7 @@ class VfsStatTableModel: AbstractTableModel() {
         return when (columnIndex) {
             FILE_NAME -> stats.fileName
             STUB_INDEX_ACCESSES -> stats.stubIndexAccesses
-            PSI_WRAPS -> stats.psiWraps
+            PSI_WRAPS -> stats.psiElementWraps
             else -> error(columnIndex)
         }
     }

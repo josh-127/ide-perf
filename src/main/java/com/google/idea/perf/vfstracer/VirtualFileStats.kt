@@ -21,7 +21,7 @@ import java.util.*
 data class VirtualFileStats(
     val fileName: String,
     val stubIndexAccesses: Int,
-    val psiWraps: Int
+    val psiElementWraps: Int
 )
 
 fun VirtualFileTree.flatten(): List<VirtualFileStats> {
@@ -41,7 +41,7 @@ fun VirtualFileTree.flatten(): List<VirtualFileStats> {
             list.add(VirtualFileStats(
                 pathBuilder.toTypedArray().joinToString("/"),
                 tree.stubIndexAccesses,
-                tree.psiWraps
+                tree.psiElementWraps
             ))
         }
 

@@ -23,14 +23,14 @@ import javax.swing.tree.TreePath
 interface VirtualFileTree {
     val name: String
     val stubIndexAccesses: Int
-    val psiWraps: Int
+    val psiElementWraps: Int
     val children: Map<String, VirtualFileTree>
 
     val isDirectory: Boolean get() = children.isNotEmpty()
     val isFile: Boolean get() = children.isEmpty()
 
     fun statEquals(other: VirtualFileTree): Boolean =
-        stubIndexAccesses == other.stubIndexAccesses && psiWraps == other.psiWraps
+        stubIndexAccesses == other.stubIndexAccesses && psiElementWraps == other.psiElementWraps
 }
 
 class MutableVirtualFileTree(
@@ -41,7 +41,7 @@ class MutableVirtualFileTree(
     }
 
     override var stubIndexAccesses: Int = 0
-    override var psiWraps: Int = 0
+    override var psiElementWraps: Int = 0
     override val children: MutableMap<String, MutableVirtualFileTree> = TreeMap()
 
     fun accumulate(tree: VirtualFileTree) {
@@ -51,13 +51,13 @@ class MutableVirtualFileTree(
         }
 
         stubIndexAccesses += tree.stubIndexAccesses
-        psiWraps += tree.psiWraps
+        psiElementWraps += tree.psiElementWraps
     }
 
     fun accumulate(
         path: String,
         stubIndexAccesses: Int = 0,
-        psiWraps: Int = 0
+        psiElementWraps: Int = 0
     ) {
         val parts = getParts(path)
         var tree = this
@@ -65,7 +65,7 @@ class MutableVirtualFileTree(
         for (part in parts) {
             val child = tree.children.getOrPut(part) { MutableVirtualFileTree(part) }
             child.stubIndexAccesses += stubIndexAccesses
-            child.psiWraps += psiWraps
+            child.psiElementWraps += psiElementWraps
             tree = child
         }
     }
@@ -119,7 +119,7 @@ class VirtualFileTreeDiff private constructor(
 ): VirtualFileTree {
     override val name get() = underlyingTree.name
     override val stubIndexAccesses: Int get() = underlyingTree.stubIndexAccesses
-    override val psiWraps: Int get() = underlyingTree.psiWraps
+    override val psiElementWraps: Int get() = underlyingTree.psiElementWraps
     override val children: Map<String, VirtualFileTree> get() = underlyingTree.children
 
     fun patch(listener: TreePatchEventListener) {
@@ -192,7 +192,7 @@ class VirtualFileTreeDiff private constructor(
                 return VirtualFileTreeDiff(
                     MutableVirtualFileTree(newTree.name).apply {
                         stubIndexAccesses = newTree.stubIndexAccesses
-                        psiWraps = newTree.psiWraps
+                        psiElementWraps = newTree.psiElementWraps
                     },
                     newTree,
                     insertedChildren,

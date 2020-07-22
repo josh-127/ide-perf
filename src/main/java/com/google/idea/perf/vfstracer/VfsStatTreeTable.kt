@@ -60,7 +60,7 @@ class VfsStatTreeTableModel: TreeTableModel {
                 child: MutableVirtualFileTree,
                 newChild: VirtualFileTree
             ) {
-                child.psiWraps = newChild.psiWraps
+                child.psiElementWraps = newChild.psiElementWraps
 
                 val treePath = path.toTreePath()
                 val indexes = intArrayOf(parent.indexOf(child))
@@ -104,7 +104,7 @@ class VfsStatTreeTableModel: TreeTableModel {
         node as VirtualFileTree
         return when (column) {
             STUB_INDEX_ACCESSES -> node.stubIndexAccesses
-            PSI_WRAPS -> node.psiWraps
+            PSI_WRAPS -> node.psiElementWraps
             else -> error(column)
         }
     }
