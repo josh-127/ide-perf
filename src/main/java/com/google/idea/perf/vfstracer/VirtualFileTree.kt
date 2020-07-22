@@ -125,7 +125,7 @@ interface TreePatchEventListener {
      * @param child The existing tree node pending for removal
      */
     fun onTreeRemove(
-        path: VirtualFileTreeDiff,
+        path: VirtualFileTreePath,
         parent: MutableVirtualFileTree,
         child: MutableVirtualFileTree
     )
@@ -136,7 +136,8 @@ class VirtualFileTreeDiff private constructor(
     private val underlyingTree: MutableVirtualFileTree,
     private val newTree: VirtualFileTree,
     private val insertedChildren: Map<String, VirtualFileTreeDiff>,
-    private val changedChildren: Map<String, VirtualFileTreeDiff>
+    private val modifiedChildren: Map<String, VirtualFileTreeDiff>,
+    private val removedChildren: Map<String, MutableVirtualFileTree>
 ): VirtualFileTree {
     override val name get() = underlyingTree.name
     override val stubIndexAccesses: Int get() = underlyingTree.stubIndexAccesses
@@ -144,9 +145,7 @@ class VirtualFileTreeDiff private constructor(
     override val children: Map<String, VirtualFileTree> get() = underlyingTree.children
 
     /** Recursively applies a patch function to the @{code underlyingTree} based on the diff. */
-    fun patch(listener: TreePatchEventListener) {
-        fun build(path: Stack<MutableVirtualFileTree>) = VirtualFileTreePath(path.toTypedArray())
-
+    fun applyPatch(listener: TreePatchEventListener) {
         fun patchImpl(
             pathBuilder: Stack<MutableVirtualFileTree>,
             treeDiff: VirtualFileTreeDiff
@@ -154,27 +153,29 @@ class VirtualFileTreeDiff private constructor(
             val underlyingTree = treeDiff.underlyingTree
             pathBuilder.push(underlyingTree)
 
+            val path = VirtualFileTreePath(pathBuilder.toTypedArray())
+
             for ((childName, newChild) in treeDiff.insertedChildren) {
                 val child = underlyingTree.children[childName]
                 check(child == null)
-                listener.onTreeInsert(
-                    build(pathBuilder),
-                    underlyingTree,
-                    newChild.underlyingTree
-                )
+                listener.onTreeInsert(path, underlyingTree, newChild.underlyingTree)
                 patchImpl(pathBuilder, newChild)
             }
 
-            for ((childName, newChild) in treeDiff.changedChildren) {
+            for ((childName, newChild) in treeDiff.modifiedChildren) {
                 val child = underlyingTree.children[childName]
                 check(child === newChild.underlyingTree)
                 listener.onTreeChange(
-                    build(pathBuilder),
+                    path,
                     underlyingTree,
                     newChild.underlyingTree,
                     newChild.newTree
                 )
                 patchImpl(pathBuilder, newChild)
+            }
+
+            for (oldChild in treeDiff.removedChildren.values) {
+                listener.onTreeRemove(path, underlyingTree, oldChild)
             }
 
             pathBuilder.pop()
@@ -191,7 +192,8 @@ class VirtualFileTreeDiff private constructor(
             newTree: VirtualFileTree
         ): VirtualFileTreeDiff {
             val insertedChildren = LinkedHashMap<String, VirtualFileTreeDiff>()
-            val changedChildren = LinkedHashMap<String, VirtualFileTreeDiff>()
+            val modifiedChildren = LinkedHashMap<String, VirtualFileTreeDiff>()
+            val removedChildren = LinkedHashMap<String, MutableVirtualFileTree>()
 
             if (oldTree != null) {
                 for ((childName, newChild) in newTree.children) {
@@ -201,11 +203,20 @@ class VirtualFileTreeDiff private constructor(
                         insertedChildren[childDiff.name] = childDiff
                     }
                     else if (!oldChild.statEquals(newChild)) {
-                        changedChildren[childDiff.name] = childDiff
+                        modifiedChildren[childDiff.name] = childDiff
                     }
                 }
 
-                return VirtualFileTreeDiff(oldTree, newTree, insertedChildren, changedChildren)
+                for ((childName, oldChild) in oldTree.children) {
+                    val newChild = newTree.children[childName]
+                    if (newChild == null) {
+                        removedChildren[childName] = oldChild
+                    }
+                }
+
+                return VirtualFileTreeDiff(
+                    oldTree, newTree, insertedChildren, modifiedChildren, removedChildren
+                )
             }
             else {
                 for ((childName, child) in newTree.children) {
@@ -219,7 +230,8 @@ class VirtualFileTreeDiff private constructor(
                     },
                     newTree,
                     insertedChildren,
-                    changedChildren
+                    modifiedChildren,
+                    removedChildren
                 )
             }
         }

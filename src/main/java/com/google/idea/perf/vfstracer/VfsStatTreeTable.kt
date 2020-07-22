@@ -42,7 +42,7 @@ class VfsStatTreeTableModel: TreeTableModel {
         val treeDiff = VirtualFileTreeDiff.create(tree, newStats)
         val listenerList = listeners.listenerList
 
-        treeDiff.patch(object: TreePatchEventListener {
+        treeDiff.applyPatch(object: TreePatchEventListener {
             override fun onTreeInsert(
                 path: VirtualFileTreePath,
                 parent: MutableVirtualFileTree,
@@ -71,7 +71,7 @@ class VfsStatTreeTableModel: TreeTableModel {
             }
 
             override fun onTreeRemove(
-                path: VirtualFileTreeDiff,
+                path: VirtualFileTreePath,
                 parent: MutableVirtualFileTree,
                 child: MutableVirtualFileTree
             ) {
