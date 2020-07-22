@@ -109,7 +109,7 @@ class VirtualFileTreePath(val parts: Array<VirtualFileTree>)
 interface TreePatchEventListener {
     /**
      * Called when the diff contains a new pending tree node.
-     * @param path A path of tree nodes that leads up to {@code parent}
+     * @param path A path of tree nodes that leads up to [parent]
      * @param parent The parent of the new tree node
      * @param child The new tree node
      */
@@ -121,7 +121,7 @@ interface TreePatchEventListener {
 
     /**
      * Called when the diff contains a modified tree node.
-     * @param path A path of tree nodes that leads up to {@code parent}
+     * @param path A path of tree nodes that leads up to [parent]
      * @param parent The parent of the modified tree node
      * @param child The existing tree node pending for modification
      * @param newChild A new tree node containing the modified values
@@ -135,7 +135,7 @@ interface TreePatchEventListener {
 
     /**
      * Called when the diff contains a removed tree node.
-     * @param path A path of tree nodes that leads up to {@code parent}
+     * @param path A path of tree nodes that leads up to [parent]
      * @param parent The parent of the removed tree node
      * @param child The existing tree node pending for removal
      */
@@ -146,7 +146,7 @@ interface TreePatchEventListener {
     )
 }
 
-/** A recursive diff between two VirtualFileTree instances. */
+/** A recursive diff between two [VirtualFileTree] instances. */
 class VirtualFileTreeDiff private constructor(
     private val underlyingTree: MutableVirtualFileTree,
     private val newTree: VirtualFileTree,
@@ -159,7 +159,7 @@ class VirtualFileTreeDiff private constructor(
     override val psiElementWraps: Int get() = underlyingTree.psiElementWraps
     override val children: Map<String, VirtualFileTree> get() = underlyingTree.children
 
-    /** Recursively applies a patch function to the @{code underlyingTree} based on the diff. */
+    /** Recursively applies a patch function to the [underlyingTree] based on the diff. */
     fun applyPatch(listener: TreePatchEventListener) {
         fun patchImpl(
             pathBuilder: Stack<MutableVirtualFileTree>,
@@ -201,7 +201,7 @@ class VirtualFileTreeDiff private constructor(
     }
 
     companion object {
-        /** Creates a diff based on the changes from {@code oldTree} to {@param newTree}. */
+        /** Creates a diff based on the changes from [oldTree] to [newTree]. */
         fun create(
             oldTree: MutableVirtualFileTree?,
             newTree: VirtualFileTree
