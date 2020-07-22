@@ -75,7 +75,7 @@ private class ChangeLog: TreePatchEventListener {
         logger.appendln("inserted $pathString $stubIndexAccesses $psiElementWraps")
     }
 
-    override fun onTreeChange(
+    override fun onTreeModify(
         path: VirtualFileTreePath,
         parent: MutableVirtualFileTree,
         child: MutableVirtualFileTree,

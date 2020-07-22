@@ -54,7 +54,7 @@ class VfsStatTreeTableModel: TreeTableModel {
                 forEachListener { it.treeStructureChanged(event) }
             }
 
-            override fun onTreeChange(
+            override fun onTreeModify(
                 path: VirtualFileTreePath,
                 parent: MutableVirtualFileTree,
                 child: MutableVirtualFileTree,

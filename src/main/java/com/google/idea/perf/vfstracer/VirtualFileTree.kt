@@ -126,7 +126,7 @@ interface TreePatchEventListener {
      * @param child The existing tree node pending for modification
      * @param newChild A new tree node containing the modified values
      */
-    fun onTreeChange(
+    fun onTreeModify(
         path: VirtualFileTreePath,
         parent: MutableVirtualFileTree,
         child: MutableVirtualFileTree,
@@ -180,7 +180,7 @@ class VirtualFileTreeDiff private constructor(
             for ((childName, newChild) in treeDiff.modifiedChildren) {
                 val child = underlyingTree.children[childName]
                 check(child === newChild.underlyingTree)
-                listener.onTreeChange(
+                listener.onTreeModify(
                     path,
                     underlyingTree,
                     newChild.underlyingTree,
