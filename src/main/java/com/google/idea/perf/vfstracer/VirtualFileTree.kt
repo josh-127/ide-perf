@@ -125,7 +125,7 @@ class VirtualFileTreeDiff private constructor(
     fun patch(listener: TreePatchEventListener) {
         fun build(path: Stack<MutableVirtualFileTree>) = VirtualFileTreePath(path.toTypedArray())
 
-        fun impl(
+        fun patchImpl(
             pathBuilder: Stack<MutableVirtualFileTree>,
             treeDiff: VirtualFileTreeDiff
         ) {
@@ -140,7 +140,7 @@ class VirtualFileTreeDiff private constructor(
                     underlyingTree,
                     newChild.underlyingTree
                 )
-                impl(pathBuilder, newChild)
+                patchImpl(pathBuilder, newChild)
             }
 
             for ((childName, newChild) in treeDiff.changedChildren) {
@@ -152,14 +152,14 @@ class VirtualFileTreeDiff private constructor(
                     newChild.underlyingTree,
                     newChild.newTree
                 )
-                impl(pathBuilder, newChild)
+                patchImpl(pathBuilder, newChild)
             }
 
             pathBuilder.pop()
         }
 
         val pathBuilder = Stack<MutableVirtualFileTree>()
-        impl(pathBuilder, this)
+        patchImpl(pathBuilder, this)
     }
 
     companion object {
@@ -167,8 +167,8 @@ class VirtualFileTreeDiff private constructor(
             oldTree: MutableVirtualFileTree?,
             newTree: VirtualFileTree
         ): VirtualFileTreeDiff {
-            val insertedChildren = mutableMapOf<String, VirtualFileTreeDiff>()
-            val changedChildren = mutableMapOf<String, VirtualFileTreeDiff>()
+            val insertedChildren = LinkedHashMap<String, VirtualFileTreeDiff>()
+            val changedChildren = LinkedHashMap<String, VirtualFileTreeDiff>()
 
             if (oldTree != null) {
                 for ((childName, newChild) in newTree.children) {

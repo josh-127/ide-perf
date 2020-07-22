@@ -60,6 +60,7 @@ class VfsStatTreeTableModel: TreeTableModel {
                 child: MutableVirtualFileTree,
                 newChild: VirtualFileTree
             ) {
+                child.stubIndexAccesses = newChild.stubIndexAccesses
                 child.psiElementWraps = newChild.psiElementWraps
 
                 val treePath = path.toTreePath()
