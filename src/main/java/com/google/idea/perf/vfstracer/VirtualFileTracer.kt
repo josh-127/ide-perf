@@ -46,7 +46,14 @@ private val LOG = Logger.getInstance(VirtualFileTracer::class.java)
 
 /** Records and manages VirtualFile statistics. */
 object VirtualFileTracer {
+    private var hooksInstalled = false
+
     fun startVfsTracing() {
+        if (hooksInstalled) {
+            VirtualFileTracerImpl.isEnabled = true
+            return
+        }
+
         val instrumentation = AgentLoader.instrumentation
         if (instrumentation == null) {
             LOG.error("Failed to get instrumentation instance.")
@@ -72,6 +79,8 @@ object VirtualFileTracer {
         instrumentation.addTransformer(transformer, true)
         instrumentation.retransformClasses(compositeElementClass)
         instrumentation.retransformClasses(stubIndexImplClass)
+
+        hooksInstalled = true
     }
 
     fun stopVfsTracing() {
