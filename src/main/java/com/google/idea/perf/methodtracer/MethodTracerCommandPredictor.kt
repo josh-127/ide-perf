@@ -44,7 +44,7 @@ class MethodTracerCommandPredictor: CommandPredictor {
             )
             1 -> when (command) {
                 is MethodTracerCommand.Trace -> {
-                    val options = predictToken(listOf("all", "count", "wall-time"), token)
+                    val options = predictToken(listOf("*", "all", "count", "wall-time"), token)
                     val classes = when (command.enable) {
                         true -> predictToken(classNames, token)
                         false -> predictToken(TracerConfig.getTracedClassNames(), token)
@@ -84,7 +84,7 @@ class MethodTracerCommandPredictor: CommandPredictor {
         }
         val methodNames = clazz?.methods?.map { it.name.substringAfter('$') }
         if (methodNames != null) {
-            return predictToken(methodNames, token)
+            return predictToken(listOf("*") + methodNames, token)
         }
         return emptyList()
     }
