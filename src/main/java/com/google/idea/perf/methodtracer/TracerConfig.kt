@@ -16,7 +16,7 @@
 
 package com.google.idea.perf.methodtracer
 
-import com.google.idea.perf.agent.MethodListener
+import com.google.idea.perf.AgentLoader
 import com.google.idea.perf.util.ConcurrentAppendOnlyList
 import com.intellij.util.PatternUtil
 import org.objectweb.asm.Type
