@@ -16,7 +16,7 @@
 
 package com.google.idea.perf.methodtracer
 
-import com.google.idea.perf.agent.Argument
+import com.google.idea.perf.methodtracer.Argument
 
 class ArgSet(val items: Array<Argument>) {
     override fun equals(other: Any?): Boolean {
