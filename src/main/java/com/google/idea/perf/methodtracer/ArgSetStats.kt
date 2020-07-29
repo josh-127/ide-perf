@@ -29,20 +29,20 @@ class ArgStatMap(
     companion object {
         fun fromCallTree(root: CallTree): ArgStatMap {
             val allStats = mutableMapOf<Tracepoint, MutableMap<String?, ArgSetStats>>()
-            val ancestors = mutableSetOf<TracepointInstance>()
+            val ancestors = mutableSetOf<MethodCall>()
 
             fun dfs(node: CallTree) {
-                val nonRecursive = node.tracepointInstance !in ancestors
+                val nonRecursive = node.methodCall !in ancestors
 
-                val arguments = node.tracepointInstance.arguments
-                val statsForTracepoint = allStats.getOrPut(node.tracepointInstance.tracepoint) { mutableMapOf() }
+                val arguments = node.methodCall.arguments
+                val statsForTracepoint = allStats.getOrPut(node.methodCall.tracepoint) { mutableMapOf() }
                 val stats = statsForTracepoint.getOrPut(arguments) { ArgSetStats(arguments) }
 
                 stats.callCount += node.callCount
                 if (nonRecursive) {
                     stats.wallTime += node.wallTime
                     stats.maxWallTime = maxOf(stats.maxWallTime, node.maxWallTime)
-                    ancestors.add(node.tracepointInstance)
+                    ancestors.add(node.methodCall)
                 }
 
                 for (child in node.children.values) {
@@ -50,7 +50,7 @@ class ArgStatMap(
                 }
 
                 if (nonRecursive) {
-                    ancestors.remove(node.tracepointInstance)
+                    ancestors.remove(node.methodCall)
                 }
             }
 
@@ -58,6 +58,16 @@ class ArgStatMap(
             assert(ancestors.isEmpty())
 
             return ArgStatMap(allStats.mapValues { it.value.values.toList() })
+        }
+
+        fun fromCallTree(root: CallTree, includeEmptyArguments: Boolean): ArgStatMap {
+            if (!includeEmptyArguments) {
+                return ArgStatMap(
+                    fromCallTree(root).tracepoints
+                        .filter{ (_, stats) -> stats.size > 1 || stats.none { it.args == null } }
+                )
+            }
+            return fromCallTree(root)
         }
     }
 }

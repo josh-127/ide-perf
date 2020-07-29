@@ -16,12 +16,12 @@
 
 package com.google.idea.perf.methodtracer
 
-data class TracepointInstance(
+data class MethodCall(
     val tracepoint: Tracepoint,
     val arguments: String?
 ) {
     companion object {
-        val ROOT = TracepointInstance(Tracepoint.ROOT, null)
+        val ROOT = MethodCall(Tracepoint.ROOT, null)
     }
 
     override fun toString(): String = "$tracepoint(${arguments ?: ""})"

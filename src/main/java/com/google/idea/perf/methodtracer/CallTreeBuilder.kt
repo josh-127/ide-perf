@@ -32,7 +32,7 @@ import kotlin.collections.LinkedHashMap
 class CallTreeBuilder(
     private val clock: Clock = SystemClock
 ) {
-    private var root = Tree(TracepointInstance.ROOT, parent = null)
+    private var root = Tree(MethodCall.ROOT, parent = null)
     private var currentNode = root
 
     init {
@@ -51,29 +51,29 @@ class CallTreeBuilder(
     }
 
     private class Tree(
-        override val tracepointInstance: TracepointInstance,
+        override val methodCall: MethodCall,
         val parent: Tree?
     ): CallTree {
         override var callCount: Long = 0L
         override var wallTime: Long = 0L
         override var maxWallTime: Long = 0L
-        override val children: MutableMap<TracepointInstance, Tree> = LinkedHashMap()
+        override val children: MutableMap<MethodCall, Tree> = LinkedHashMap()
 
         var startWallTime: Long = 0
         var continuedWallTime: Long = 0
         var tracepointFlags: Int = 0
 
         init {
-            require(parent != null || tracepointInstance == TracepointInstance.ROOT) {
+            require(parent != null || methodCall == MethodCall.ROOT) {
                 "Only the root node can have a null parent"
             }
         }
     }
 
-    fun push(tracepointInstance: TracepointInstance) {
+    fun push(methodCall: MethodCall) {
         val parent = currentNode
-        val child = parent.children.getOrPut(tracepointInstance) { Tree(tracepointInstance, parent) }
-        val flags = tracepointInstance.tracepoint.flags.get()
+        val child = parent.children.getOrPut(methodCall) { Tree(methodCall, parent) }
+        val flags = methodCall.tracepoint.flags.get()
 
         child.tracepointFlags = flags
 
@@ -98,12 +98,12 @@ class CallTreeBuilder(
             "The root node should never be popped"
         }
 
-        check(tracepoint == child.tracepointInstance.tracepoint) {
+        check(tracepoint == child.methodCall.tracepoint) {
             """
             This pop() call does not match the current tracepoint on the stack.
             Did someone call push() without later calling pop()?
             Tracepoint passed to pop(): $tracepoint
-            Current tracepoint instance on the stack: ${child.tracepointInstance}
+            Current tracepoint instance on the stack: ${child.methodCall}
             """.trimIndent()
         }
 
@@ -135,17 +135,17 @@ class CallTreeBuilder(
 
         // Reset to a new tree and copy over the current stack.
         val oldRoot = root
-        root = Tree(TracepointInstance.ROOT, parent = null)
+        root = Tree(MethodCall.ROOT, parent = null)
         root.startWallTime = oldRoot.startWallTime
         root.continuedWallTime = oldRoot.continuedWallTime
         root.tracepointFlags = oldRoot.tracepointFlags
         currentNode = root
         for (node in stack.subList(1, stack.size)) {
-            val copy = Tree(node.tracepointInstance, parent = currentNode)
+            val copy = Tree(node.methodCall, parent = currentNode)
             copy.startWallTime = node.startWallTime
             copy.continuedWallTime = node.continuedWallTime
             copy.tracepointFlags = node.tracepointFlags
-            currentNode.children[node.tracepointInstance] = copy
+            currentNode.children[node.methodCall] = copy
             currentNode = copy
         }
 

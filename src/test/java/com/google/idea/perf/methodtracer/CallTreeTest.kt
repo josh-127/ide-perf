@@ -22,13 +22,13 @@ import org.junit.Test
 class CallTreeTest {
 
     private class Tree(
-        override val tracepointInstance: TracepointInstance,
+        override val methodCall: MethodCall,
         override val callCount: Long,
         override val wallTime: Long,
         override val maxWallTime: Long,
         childrenList: List<Tree> = emptyList()
     ): CallTree {
-        override val children = childrenList.associateBy { it.tracepointInstance }
+        override val children = childrenList.associateBy { it.methodCall }
     }
 
     class TestClock: CallTreeBuilder.Clock {
@@ -43,20 +43,20 @@ class CallTreeTest {
 
     @Test
     fun testFlatTracepointStats() {
-        val simple1 = TracepointInstance(Tracepoint("simple1"), null)
-        val simple2 = TracepointInstance(Tracepoint("simple2"), null)
-        val simple3 = TracepointInstance(Tracepoint("simple3"), null)
+        val simple1 = MethodCall(Tracepoint("simple1"), null)
+        val simple2 = MethodCall(Tracepoint("simple2"), null)
+        val simple3 = MethodCall(Tracepoint("simple3"), null)
 
         val withArgumentTracepoint = Tracepoint("withArgument")
-        val withArgument1 = TracepointInstance(withArgumentTracepoint, "100")
-        val withArgument2 = TracepointInstance(withArgumentTracepoint, "200")
+        val withArgument1 = MethodCall(withArgumentTracepoint, "100")
+        val withArgument2 = MethodCall(withArgumentTracepoint, "200")
 
-        val selfRecursion = TracepointInstance(Tracepoint("selfRecursion"), null)
+        val selfRecursion = MethodCall(Tracepoint("selfRecursion"), null)
 
-        val mutualRecursion1 = TracepointInstance(Tracepoint("mutualRecursion1"), null)
-        val mutualRecursion2 = TracepointInstance(Tracepoint("mutualRecursion2"), null)
+        val mutualRecursion1 = MethodCall(Tracepoint("mutualRecursion1"), null)
+        val mutualRecursion2 = MethodCall(Tracepoint("mutualRecursion2"), null)
 
-        val tree = Tree(TracepointInstance.ROOT, 0, 0, 0, listOf(
+        val tree = Tree(MethodCall.ROOT, 0, 0, 0, listOf(
             // Simple.
             Tree(simple1, 16, 1600, 100, listOf(
                 Tree(simple2, 8, 800, 100, listOf(
@@ -140,14 +140,14 @@ class CallTreeTest {
         val clock = TestClock()
         val builder = CallTreeBuilder(clock)
 
-        val simple1 = TracepointInstance(Tracepoint("simple1"), null)
-        val simple2 = TracepointInstance(Tracepoint("simple2"), null)
-        val simple3 = TracepointInstance(Tracepoint("simple3"), null)
+        val simple1 = MethodCall(Tracepoint("simple1"), null)
+        val simple2 = MethodCall(Tracepoint("simple2"), null)
+        val simple3 = MethodCall(Tracepoint("simple3"), null)
 
-        val selfRecursion = TracepointInstance(Tracepoint("selfRecursion"), null)
+        val selfRecursion = MethodCall(Tracepoint("selfRecursion"), null)
 
-        val mutualRecursion1 = TracepointInstance(Tracepoint("mutualRecursion1"), null)
-        val mutualRecursion2 = TracepointInstance(Tracepoint("mutualRecursion2"), null)
+        val mutualRecursion1 = MethodCall(Tracepoint("mutualRecursion1"), null)
+        val mutualRecursion2 = MethodCall(Tracepoint("mutualRecursion2"), null)
 
         // Simple.
         builder.push(simple1)
@@ -187,7 +187,7 @@ class CallTreeTest {
 
         fun StringBuilder.printTree(node: CallTree, indent: String) {
             with(node) {
-                appendln("$indent$tracepointInstance: $callCount calls, $wallTime ns, $maxWallTime ns")
+                appendln("$indent$methodCall: $callCount calls, $wallTime ns, $maxWallTime ns")
             }
             for (child in node.children.values) {
                 printTree(child, "$indent  ")
@@ -256,11 +256,11 @@ class CallTreeTest {
         val clock = TestClock()
         val builder = CallTreeBuilder(clock)
         val simple = Tracepoint("simple1", null, TracepointFlags.TRACE_ALL)
-        val simpleInstance = TracepointInstance(simple, null)
+        val simpleInstance = MethodCall(simple, null)
 
         fun StringBuilder.printTree(node: CallTree, indent: String) {
             with(node) {
-                appendln("$indent$tracepointInstance: $callCount calls, $wallTime ns, $maxWallTime ns")
+                appendln("$indent$methodCall: $callCount calls, $wallTime ns, $maxWallTime ns")
             }
             for (child in node.children.values) {
                 printTree(child, "$indent  ")
@@ -334,14 +334,14 @@ class CallTreeTest {
         val builder = CallTreeBuilder(clock)
 
         val simpleTracepoint = Tracepoint("simple")
-        val simple1 = TracepointInstance(simpleTracepoint, "arg1")
-        val simple2 = TracepointInstance(simpleTracepoint, "arg2")
-        val simple3 = TracepointInstance(simpleTracepoint, "arg3")
+        val simple1 = MethodCall(simpleTracepoint, "arg1")
+        val simple2 = MethodCall(simpleTracepoint, "arg2")
+        val simple3 = MethodCall(simpleTracepoint, "arg3")
 
-        val selfRecursion = TracepointInstance(Tracepoint("selfRecursion"), "myArg")
+        val selfRecursion = MethodCall(Tracepoint("selfRecursion"), "myArg")
 
-        val mutualRecursion1 = TracepointInstance(Tracepoint("mutualRecursion1"), "myArg")
-        val mutualRecursion2 = TracepointInstance(Tracepoint("mutualRecursion2"), "myArg")
+        val mutualRecursion1 = MethodCall(Tracepoint("mutualRecursion1"), "myArg")
+        val mutualRecursion2 = MethodCall(Tracepoint("mutualRecursion2"), "myArg")
 
         // Simple.
         builder.push(simple1)
@@ -373,11 +373,11 @@ class CallTreeTest {
         builder.pop(mutualRecursion2.tracepoint)
         builder.pop(mutualRecursion1.tracepoint)
 
-        fun CallTree.get(head: TracepointInstance, vararg tail: TracepointInstance): CallTree {
+        fun CallTree.get(head: MethodCall, vararg tail: MethodCall): CallTree {
             var child = this.children[head] ?: error("$head does not exist.")
 
-            for (tracepointInstance in tail) {
-                child = child.children[tracepointInstance] ?: error("$tracepointInstance does not exist.")
+            for (methodCall in tail) {
+                child = child.children[methodCall] ?: error("$methodCall does not exist.")
             }
 
             return child

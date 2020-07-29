@@ -18,25 +18,25 @@ package com.google.idea.perf.methodtracer
 
 /** A call tree, represented recursively. */
 interface CallTree {
-    val tracepointInstance: TracepointInstance
+    val methodCall: MethodCall
     val callCount: Long
     val wallTime: Long
     val maxWallTime: Long
-    val children: Map<TracepointInstance, CallTree>
+    val children: Map<MethodCall, CallTree>
 }
 
 /** A mutable call tree implementation. */
 class MutableCallTree(
-    override val tracepointInstance: TracepointInstance
+    override val methodCall: MethodCall
 ): CallTree {
     override var callCount: Long = 0L
     override var wallTime: Long = 0L
     override var maxWallTime: Long = 0L
-    override val children: MutableMap<TracepointInstance, MutableCallTree> = LinkedHashMap()
+    override val children: MutableMap<MethodCall, MutableCallTree> = LinkedHashMap()
 
     /** Accumulates the data from another call tree into this one. */
     fun accumulate(other: CallTree) {
-        require(other.tracepointInstance == tracepointInstance) {
+        require(other.methodCall == methodCall) {
             "Doesn't make sense to sum call tree nodes representing different tracepoints"
         }
 
@@ -44,8 +44,8 @@ class MutableCallTree(
         wallTime += other.wallTime
         maxWallTime = maxOf(maxWallTime, other.maxWallTime)
 
-        for ((childTracepointInstance, otherChild) in other.children) {
-            val child = children.getOrPut(childTracepointInstance) { MutableCallTree(childTracepointInstance) }
+        for ((childMethodCall, otherChild) in other.children) {
+            val child = children.getOrPut(childMethodCall) { MutableCallTree(childMethodCall) }
             child.accumulate(otherChild)
         }
     }
