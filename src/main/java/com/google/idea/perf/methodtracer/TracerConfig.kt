@@ -310,6 +310,9 @@ object TracerConfig {
 
     fun getTracepoint(methodId: Int): Tracepoint = tracepoints.get(methodId)
 
+    fun getTracepointInstance(methodId: Int, arguments: Array<Argument>?) =
+        TracepointInstance(getTracepoint(methodId), arguments?.map { it.value }?.joinToString(", "))
+
     private fun createTracepoint(
         classJvmName: String,
         methodName: String,
